@@ -1,0 +1,171 @@
+#include "stdafx.h"
+#include "windows.h"//to slow down the screen refreshing date (1); for mouse movement: SetCursorPos()
+#include <conio.h>//for SetCursorPos() and GetCursorPos()
+#include <iostream>
+#include "Leap.h"
+
+using namespace Leap;
+
+int flag1=0;
+//INPUT Input={0};
+
+class SampleListener : public Listener 
+{
+public:
+	virtual void onInit(const Controller&);
+	virtual void onConnect(const Controller&);
+	virtual void onDisconnect(const Controller&);
+	virtual void onExit(const Controller&);
+	virtual void onFrame(const Controller&);
+	virtual void onFocusGained(const Controller&);
+	virtual void onFocusLost(const Controller&);
+	virtual void onDeviceChange(const Controller&);
+	virtual void onServiceConnect(const Controller&);
+	virtual void onServiceDisconnect(const Controller&);
+};
+
+int main() 
+{
+	// Create a sample listener and controller
+	SampleListener listener;
+	Controller controller;
+
+	// Have the sample listener receive events from the controller
+	controller.addListener(listener);
+
+	// Keep this process running until Enter is pressed
+	std::cout << "Press Enter to quit..." << std::endl;
+	std::cin.get();
+
+	// Remove the sample listener when done
+	controller.removeListener(listener);
+
+	return 0;
+}
+
+void SampleListener::onInit(const Controller& controller) 
+{
+	std::cout << "Initialized123" << std::endl;
+}
+
+void SampleListener::onConnect(const Controller& controller) 
+{
+	std::cout << "Connected" << std::endl;	 
+	//enable all gesture recognition 
+	controller.enableGesture(Gesture::TYPE_CIRCLE);
+	controller.enableGesture(Gesture::TYPE_KEY_TAP);
+	controller.enableGesture(Gesture::TYPE_SCREEN_TAP);
+	controller.enableGesture(Gesture::TYPE_SWIPE);
+}
+
+void SampleListener::onDisconnect(const Controller& controller) 
+{
+	// Note: not dispatched when running in a debugger.
+	std::cout << "Disconnected" << std::endl;
+}
+
+void SampleListener::onExit(const Controller& controller)
+{
+	std::cout << "Exited" << std::endl;
+}
+
+//§§§§§§§§§§§§§ccore function, determines what will be done when a frame is accquired
+void SampleListener::onFrame(const Controller& controller) 
+{
+	// Get the most recent frame and report some basic information
+	const Frame frame = controller.frame();
+	std::cout << "Frame id: " << frame.id()
+		<< ", timestamp: " << frame.timestamp()
+		<< ", hands: " << frame.hands().count()
+		<< ", fingers: " << frame.fingers().count()
+		<< ", tools: " << frame.tools().count()
+		<< ", gestures: " << frame.gestures().count() << std::endl;
+
+	if (!frame.hands().isEmpty()) 
+	{
+		// Get the first hand
+		const Hand hand = frame.hands()[0];
+
+		// Check if the hand has any fingers
+		const FingerList fingers = hand.fingers();
+		if (!fingers.isEmpty()) 
+		{
+
+			//$$$$ calculate the 'index' finger position
+			std::cout<< "index position" <<fingers[0].stabilizedTipPosition()<<std::endl<<std::endl;
+			int screenWidth=GetSystemMetrics(SM_CXSCREEN);
+			int screenHeight=GetSystemMetrics(SM_CYSCREEN);
+
+			float cursorX=fingers[0].stabilizedTipPosition().x;
+			float cursorY=fingers[0].stabilizedTipPosition().y;// i can also use stabilizedTipPosition() here, thus the precision is more precise. pay attention to the fact that the original of screen is top-left corner( so the y axis is facing down), and the original point of leap controller is the center of the controller( so the y axis is facing up).
+			float vz=fingers[0].tipVelocity().z;
+
+			if(vz>-100.0)//pay attention to the positive direction of Z of controller
+				//if z is smaller than 10 mm/s, x and y get new values. stepped uncontinous i.e. after each single click, the cursor will jump to a new position. but no influence on the whole operation.
+			{
+
+				if(flag1==1)	  //&&fingers[0].touchDistance==1)
+				{
+					//left button up
+					mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+					flag1=0;
+				}
+				//x and y constantization skip the following code if z is bigger than threshold1
+				cursorX = (cursorX + 60) / 120 * screenWidth;
+				cursorY = (1 - (cursorY - 110) / 70) * screenHeight;
+				SetCursorPos(cursorX,cursorY);
+			}
+
+			else//x and y stay unchanged, use the old values from last frame.
+			{
+				//LMB single click event, if we wanna only single click function in the program, we dont need to use any new criterion here. However, if we wanna more than one event, we need the touchDistance criterion to further define the number of clicks. 
+				//if (fingers[0].touchDistance==-1)
+				//{
+
+				
+
+				//left button down
+				if(flag1==0)
+				{
+					mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);//after mouse down, should be moveable, now there is no the cursor motion, bcz cursor cannot get new values
+					flag1=1;//flag1 ==1, next loop wont trigger mouse down event.
+				}
+			}
+		}
+	}
+	//Sleep(10);//to slow down the screen refreshing date (2), in the real-time mouse control, dont sleep, or the cursor movement will be like "stepped"
+}
+
+void SampleListener::onFocusGained(const Controller& controller) 
+{
+	std::cout << "Focus Gained" << std::endl;
+}
+
+void SampleListener::onFocusLost(const Controller& controller) 
+{
+	std::cout << "Focus Lost" << std::endl;
+}
+
+void SampleListener::onDeviceChange(const Controller& controller)
+{
+	std::cout << "Device Changed" << std::endl;
+	const DeviceList devices = controller.devices();
+
+	for (int i = 0; i < devices.count(); ++i) 
+	{
+		std::cout << "id: " << devices[i].toString() << std::endl;
+		std::cout << "  isStreaming: " << (devices[i].isStreaming() ? "true" : "false") << std::endl;
+	}
+}
+
+void SampleListener::onServiceConnect(const Controller& controller) 
+{
+	std::cout << "Service Connected" << std::endl;
+}
+
+void SampleListener::onServiceDisconnect(const Controller& controller) 
+{
+	std::cout << "Service Disconnected" << std::endl;
+}
+
+
